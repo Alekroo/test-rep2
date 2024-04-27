@@ -7,12 +7,17 @@ const App = () => {
     { name: 'Arto Hellas', number: '040-123456', id: 1 },
     { name: 'Ada Lovelace', number: '39-44-5323523', id: 2 },
     { name: 'Dan Abramov', number: '12-43-234345', id: 3 },
-    { name: 'Mary Poppendieck', number: '39-23-6423122', id: 4 }
   ])
-  var personExists = false;
+
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [newSearch, setNewSearch] = useState('')
+  const [errorMsg, setErrorMsg] = useState("")
+
+
+  var personExists = false;
+  var personUpdated = false;
+
 
   useEffect(() => {
     personService
@@ -53,17 +58,64 @@ const App = () => {
 
   const addPers = (event) => {
     event.preventDefault()
-    const personObject = {
-      name: newName,
-      number: newNumber
-    }
-    noteService
-    .create(personObject)
-    .then(returnedPersons => {
-      setPersons(persons.concat(returnedPersons))
-      setNewName('')
-      setNewNumber('')
-    })
+    persons.map(person => 
+      {
+        if(person.name == newName)
+        {
+          if(person.number == newNumber)
+          {
+            personExists = true
+            return
+          }
+          else
+          {
+            if (window.confirm(`${newName} already exists in the phonebook.
+                                Replace the old number with a new one`)) 
+            {
+              const updatedPerson = {name: newName, number: newNumber}
+              personService.update(person.id,updatedPerson).then(response =>
+                {
+                  setPersons(persons.map(p => p.id !== person.id ? p : updatedPerson))
+                  setNewName('')
+                  setNewNumber('')
+                  setErrorMsg("")
+                }
+              ).catch(error => {
+                // this is the way to access the error message
+                setErrorMsg(error.response.data.error);
+                console.log(error.response.data.error)
+              })
+            }
+          }
+          personUpdated = true
+          return
+        }
+      })
+      if(personExists)
+      {
+        alert(newName + " already exists!")
+        personExists = false
+      }
+      else if(!personUpdated)
+      {
+        const personObject = {
+          name: newName,
+          number: newNumber
+        }
+        personService
+        .create(personObject)
+        .then(returnedPersons => {
+          setPersons(persons.concat(returnedPersons))
+          setNewName('')
+          setNewNumber('')
+          setErrorMsg("")
+        }).catch(error => {
+          // this is the way to access the error message
+          setErrorMsg(error.response.data.error)
+          console.log(error.response.data.error)
+        })
+      }
+      personUpdated = false
   }
 
   const handlePersonChange = (event) => {
@@ -82,19 +134,26 @@ const App = () => {
     setNewSearch(event.target.value)
   }
 
+  const deletePersonClicked = (id) =>
+  {
+    personService.erase(id);
+    setPersons(persons.filter(p => p.id !== id))
+  }
+
   const personsToShow = persons.filter(person => person.name.includes(newSearch))
 
   console.log(personsToShow)
 
   return (
     <div>
+      <p>{errorMsg}</p>
       <h2>Phonebook</h2>
       <div>
         filter shown with
         <input onChange={handleSearchChange} value={newSearch}/>
       </div>
       <h2>Add a new</h2>
-      <form onSubmit={addPerson}>
+      <form onSubmit={addPers}>
         <div>
           name:
           <input
@@ -114,20 +173,21 @@ const App = () => {
       <h2>Numbers</h2>
       <ul>
         {personsToShow.map((person, id) => 
-          <Person key={id} person={person}/>
+          <Person key={id} person={person} 
+            deletePerson={() => deletePersonClicked(person.id)}/>
         )}
       </ul>
     </div>
   )
 }
 
-function Person({person})
+function Person({person,deletePerson})
 {
   
   return(
     <div>
-      <p>{person.name} {person.number}</p>
-      <button>Delete</button>
+      <p>{person.name} {person.number}
+      &ensp; <button onClick={deletePerson}>Delete</button></p>
     </div>
   )
 
